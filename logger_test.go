@@ -23,8 +23,7 @@ const (
 
 func TestFieldValueError(t *testing.T) {
 	buf := &bytes.Buffer{}
-	l := New(&JSONFormatter{})
-	l.Logger.SetOutput(buf)
+	l := New(WithFormatter(&JSONFormatter{}), WithOutput(buf))
 	l.WithField("func", func() {}).Info("test")
 	t.Log("buffer", buf.String())
 	var data map[string]interface{}
@@ -56,12 +55,10 @@ func TestContextWithNoLogger(t *testing.T) {
 func TestContextWithLogger(t *testing.T) {
 	var (
 		buf = &bytes.Buffer{}
-		l   = New()
+		l   = New(WithFormatter(&TextFormatter{}), WithOutput(buf))
 		ctx = context.WithValue(context.Background(), Key, l)
 	)
 	logger := GetLogger(ctx)
-	logger.Logger.SetFormatter(&TextFormatter{})
-	logger.Logger.SetOutput(buf)
 	logger.AddLog("hello %v", "world")
 	logger.WithFields(map[string]interface{}{
 		"K1": "V1",

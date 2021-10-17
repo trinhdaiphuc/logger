@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/sirupsen/logrus"
+	"io"
 	"sync"
-	"time"
 )
 
 type Log struct {
@@ -18,6 +18,7 @@ type Log struct {
 type TextFormatter = logrus.TextFormatter
 type JSONFormatter = logrus.JSONFormatter
 type Formatter = logrus.Formatter
+type Option func()
 
 const (
 	Key                = "Logger"
@@ -35,13 +36,25 @@ const (
 )
 
 // New return a new log object with log start time
-func New(formatter ...Formatter) *Log {
-	if len(formatter) > 0 {
-		logrus.SetFormatter(formatter[0])
+func New(opts ...Option) *Log {
+	for _, opt := range opts {
+		opt()
 	}
-	logTime := time.Now().Format(time.RFC3339)
+
 	return &Log{
-		Entry: logrus.WithField("Time", logTime),
+		Entry: logrus.NewEntry(logrus.StandardLogger()),
+	}
+}
+
+func WithFormatter(formatter Formatter) Option {
+	return func() {
+		logrus.SetFormatter(formatter)
+	}
+}
+
+func WithOutput(output io.Writer) Option {
+	return func() {
+		logrus.SetOutput(output)
 	}
 }
 

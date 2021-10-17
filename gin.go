@@ -9,7 +9,7 @@ import (
 
 func GinMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		logger := New(&JSONFormatter{})
+		logger := New(WithFormatter(&JSONFormatter{}))
 		var (
 			clientIP = ctx.ClientIP()
 			method   = ctx.Request.Method

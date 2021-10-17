@@ -14,12 +14,11 @@ import (
 
 func TestEchoMiddleware(t *testing.T) {
 	var (
-		l   = New(&JSONFormatter{})
 		buf = &bytes.Buffer{}
 	)
+	New(WithFormatter(&JSONFormatter{}),WithOutput(buf))
 	server := echo.New()
 	server.Use(EchoMiddleware)
-	l.Logger.SetOutput(buf)
 	server.GET("/hello/:name", func(ctx echo.Context) error {
 		logger := GetLogger(ctx.Request().Context())
 		name := ctx.Param("name")
@@ -57,13 +56,13 @@ func TestEchoMiddleware(t *testing.T) {
 
 func TestEchoMiddlewareError(t *testing.T) {
 	var (
-		l       = New(&JSONFormatter{})
 		buf     = &bytes.Buffer{}
 		testErr = errors.New("test err")
 	)
+	New(WithFormatter(&JSONFormatter{}),WithOutput(buf))
 	server := echo.New()
 	server.Use(EchoMiddleware)
-	l.Logger.SetOutput(buf)
+
 	server.GET("/hello/:name", func(ctx echo.Context) error {
 		logger := GetLogger(ctx.Request().Context())
 		name := ctx.Param("name")

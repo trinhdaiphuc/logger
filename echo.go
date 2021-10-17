@@ -9,7 +9,7 @@ import (
 
 func EchoMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(ctx echo.Context) error {
-		logger := New(&JSONFormatter{})
+		logger := New(WithFormatter(&JSONFormatter{}))
 		var (
 			clientIP  = ctx.RealIP()
 			method    = ctx.Request().Method

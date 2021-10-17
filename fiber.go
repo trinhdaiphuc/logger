@@ -8,7 +8,7 @@ import (
 
 func FiberMiddleware() fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
-		logger := New(&JSONFormatter{})
+		logger := New(WithFormatter(&JSONFormatter{}))
 		var (
 			clientIP  = ctx.IP()
 			method    = ctx.Method()

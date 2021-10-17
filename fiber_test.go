@@ -14,12 +14,12 @@ import (
 
 func TestFiberMiddleware(t *testing.T) {
 	var (
-		l   = New(&JSONFormatter{})
 		buf = &bytes.Buffer{}
 	)
+	New(WithFormatter(&JSONFormatter{}),WithOutput(buf))
 	server := fiber.New()
 	server.Use(FiberMiddleware())
-	l.Logger.SetOutput(buf)
+
 	server.Get("/hello/:name", func(ctx *fiber.Ctx) error {
 		logger := GetLogger(ctx.Context())
 		name := ctx.Params("name")
@@ -57,13 +57,13 @@ func TestFiberMiddleware(t *testing.T) {
 
 func TestFiberMiddlewareError(t *testing.T) {
 	var (
-		l       = New(&JSONFormatter{})
 		buf     = &bytes.Buffer{}
 		testErr = errors.New("test err")
 	)
+	New(WithFormatter(&JSONFormatter{}),WithOutput(buf))
 	server := fiber.New()
 	server.Use(FiberMiddleware())
-	l.Logger.SetOutput(buf)
+
 	server.Get("/hello/:name", func(ctx *fiber.Ctx) error {
 		logger := GetLogger(ctx.Context())
 		name := ctx.Params("name")

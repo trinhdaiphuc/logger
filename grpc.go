@@ -12,19 +12,19 @@ import (
 
 func GrpcInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 	var (
-		log       = New(&JSONFormatter{})
+		log       = New(WithFormatter(&JSONFormatter{}))
 		start     = time.Now()
 		panicking = true
 	)
 
 	p, ok := peer.FromContext(ctx)
 	if ok {
-		log.WithField("request_ip", p.Addr.String())
+		log.WithField(ClientIPField, p.Addr.String())
 	}
 	log.WithFields(map[string]interface{}{
 		StartField:   start,
 		URIField:     info.FullMethod,
-		RequestField: log.ToJsonString(req),
+		RequestField: req,
 	})
 
 	defer func() {

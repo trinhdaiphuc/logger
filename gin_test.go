@@ -13,12 +13,12 @@ import (
 
 func TestGinMiddleware(t *testing.T) {
 	var (
-		l   = New(&JSONFormatter{})
 		buf = &bytes.Buffer{}
 	)
+	New(WithFormatter(&JSONFormatter{}),WithOutput(buf))
 	server := gin.New()
 	server.Use(GinMiddleware())
-	l.Logger.SetOutput(buf)
+
 	server.GET("/hello/:name", func(ctx *gin.Context) {
 		logger := GetLogger(ctx)
 		name := ctx.Param("name")
@@ -56,13 +56,13 @@ func TestGinMiddleware(t *testing.T) {
 
 func TestGinMiddlewareError(t *testing.T) {
 	var (
-		l       = New(&JSONFormatter{})
 		buf     = &bytes.Buffer{}
 		testErr = errors.New("test err")
 	)
+	New(WithFormatter(&JSONFormatter{}),WithOutput(buf))
 	server := gin.New()
 	server.Use(GinMiddleware())
-	l.Logger.SetOutput(buf)
+
 	server.GET("/hello/:name", func(ctx *gin.Context)  {
 		logger := GetLogger(ctx)
 		name := ctx.Param("name")
