@@ -238,7 +238,7 @@ func main() {
 }
 ```
 
-Try logger with request client:
+Try logger with GRPC client:
 
 ```go
 package main
