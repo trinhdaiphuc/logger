@@ -50,6 +50,6 @@ func FiberMiddleware() fiber.Handler {
 		} else {
 			logger.Info(msg)
 		}
-		return nil
+		return err
 	}
 }

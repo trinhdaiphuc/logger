@@ -52,6 +52,6 @@ func EchoMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		} else {
 			logger.Info(msg)
 		}
-		return nil
+		return err
 	}
 }
