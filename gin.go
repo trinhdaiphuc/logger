@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"context"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"time"
@@ -27,7 +26,7 @@ func GinMiddleware() gin.HandlerFunc {
 			UserAgentField:     userAgent,
 			URIField:           uri,
 		})
-		ctx.Request = ctx.Request.WithContext(context.WithValue(ctx, Key, logger))
+		//ctx.Request = ctx.Request.WithContext(context.WithValue(ctx, Key, logger))
 		ctx.Set(Key, logger)
 		ctx.Next()
 		var (
