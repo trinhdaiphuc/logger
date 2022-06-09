@@ -60,15 +60,23 @@ func WithOutput(output io.Writer) Option {
 
 // GetLogger get logger from context
 func GetLogger(ctx context.Context) *Log {
-	logger, ok := ctx.Value(Key).(*Log)
-	if !ok {
-		logger := New()
-		ctx = context.WithValue(
-			ctx,
-			Key, logger)
-		return logger
+	loggerCtx := ctx.Value(Key)
+	if loggerCtx == nil {
+		goto NewLogger
+	} else {
+		logger, ok := loggerCtx.(*Log)
+		if !ok {
+			goto NewLogger
+		} else {
+			return logger
+		}
 	}
-	return logger
+NewLogger:
+	newLogger := New()
+	ctx = context.WithValue(
+		ctx,
+		Key, newLogger)
+	return newLogger
 }
 
 // ToJsonString convert an object into json string to beautify log
