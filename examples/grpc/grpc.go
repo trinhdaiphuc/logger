@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 )
 
@@ -34,7 +35,15 @@ func main() {
 		panic(err)
 	}
 	server := grpc.NewServer(grpc.UnaryInterceptor(
-		logger.GrpcInterceptor,
+		logger.GrpcInterceptor(logger.ConfigGrpc{
+			SkipperGrpc: func(ctx context.Context, info *grpc.UnaryServerInfo) bool {
+				fmt.Println("method", info.FullMethod)
+				if strings.HasSuffix(info.FullMethod, "/Hello") {
+					return true
+				}
+				return false
+			},
+		}),
 	))
 
 	pb.RegisterHelloServiceServer(server, &HelloService{})

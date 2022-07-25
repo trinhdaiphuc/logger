@@ -32,7 +32,14 @@ import (
 
 func main() {
 	server := echo.New()
-	server.Use(logger.EchoMiddleware)
+	server.Use(logger.EchoMiddleware(logger.ConfigEcho{
+		SkipperEcho: func(context echo.Context) bool {
+			if context.Request().RequestURI == "/metrics" {
+				return true
+			}
+			return false
+		},
+	}))
 
 	server.GET("/hello/:name", func(ctx echo.Context) error {
 		log := logger.GetLogger(ctx.Request().Context())
@@ -87,7 +94,14 @@ import (
 
 func main() {
 	app := fiber.New()
-	app.Use(logger.FiberMiddleware())
+	app.Use(logger.FiberMiddleware(logger.ConfigFiber{
+		SkipperFiber: func(context *fiber.Ctx) bool {
+			if string(context.Request().RequestURI()) == "/metrics" {
+				return true
+			}
+			return false
+		},
+	}))
 
 	app.Get("/hello/:name", func(ctx *fiber.Ctx) error {
 		log := logger.GetLogger(ctx.Context())
@@ -143,7 +157,12 @@ import (
 func main() {
 	gin.SetMode(gin.ReleaseMode)
 	server := gin.New()
-	server.Use(logger.GinMiddleware())
+	server.Use(logger.GinMiddleware(logger.ConfigGin{SkipperGin: func(context *gin.Context) bool {
+		if context.Request.RequestURI == "/metrics" {
+			return true
+		}
+		return false
+	}}))
 	server.GET("/hello/:name", func(ctx *gin.Context) {
 		log := logger.GetLogger(ctx)
 		name := ctx.Param("name")
@@ -215,7 +234,15 @@ func main() {
 		panic(err)
 	}
 	server := grpc.NewServer(grpc.UnaryInterceptor(
-		logger.GrpcInterceptor,
+		logger.GrpcInterceptor(logger.ConfigGrpc{
+			SkipperGrpc: func(ctx context.Context, info *grpc.UnaryServerInfo) bool {
+				fmt.Println("method", info.FullMethod)
+				if strings.HasSuffix(info.FullMethod, "/Hello") {
+					return true
+				}
+				return false
+			},
+		}),
 	))
 
 	pb.RegisterHelloServiceServer(server, &HelloService{})

@@ -7,9 +7,25 @@ import (
 	"time"
 )
 
-func GinMiddleware() gin.HandlerFunc {
+var DefaultConfigGin = ConfigGin{
+	SkipperGin: DefaultSkipperGin,
+}
+
+func GinMiddleware(config ConfigGin) gin.HandlerFunc {
+	if config.SkipperGin == nil {
+		config.SkipperGin = DefaultSkipperGin
+	}
+	logger := New(WithFormatter(&JSONFormatter{}))
+
 	return func(ctx *gin.Context) {
-		logger := New(WithFormatter(&JSONFormatter{}))
+		if config.SkipperGin(ctx) {
+			ctx.Next()
+			return
+		}
+
+		if config.BeforeFuncGin != nil {
+			config.BeforeFuncGin(ctx)
+		}
 		var (
 			clientIP = ctx.ClientIP()
 			method   = ctx.Request.Method

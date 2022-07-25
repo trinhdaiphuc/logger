@@ -8,7 +8,12 @@ import (
 func main() {
 	gin.SetMode(gin.ReleaseMode)
 	server := gin.New()
-	server.Use(logger.GinMiddleware())
+	server.Use(logger.GinMiddleware(logger.ConfigGin{SkipperGin: func(context *gin.Context) bool {
+		if context.Request.RequestURI == "/metrics" {
+			return true
+		}
+		return false
+	}}))
 	server.GET("/hello/:name", func(ctx *gin.Context) {
 		log := logger.GetLogger(ctx)
 		name := ctx.Param("name")

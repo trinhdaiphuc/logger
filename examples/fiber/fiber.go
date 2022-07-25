@@ -7,7 +7,14 @@ import (
 
 func main() {
 	app := fiber.New()
-	app.Use(logger.FiberMiddleware())
+	app.Use(logger.FiberMiddleware(logger.ConfigFiber{
+		SkipperFiber: func(context *fiber.Ctx) bool {
+			if string(context.Request().RequestURI()) == "/metrics" {
+				return true
+			}
+			return false
+		},
+	}))
 
 	app.Get("/hello/:name", func(ctx *fiber.Ctx) error {
 		log := logger.GetLogger(ctx.Context())

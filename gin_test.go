@@ -12,90 +12,130 @@ import (
 )
 
 func TestGinMiddleware(t *testing.T) {
-	var (
-		buf = &bytes.Buffer{}
-	)
-	New(WithFormatter(&JSONFormatter{}),WithOutput(buf))
-	server := gin.New()
-	server.Use(GinMiddleware())
-
-	server.GET("/hello/:name", func(ctx *gin.Context) {
-		logger := GetLogger(ctx)
-		name := ctx.Param("name")
-		logger.AddLog("request name %v", name)
-		ctx.String(200, "hello "+name)
-	})
-
-	// RUN
-	requestUri := "/hello/world"
-	w := performRequest(server, "GET", requestUri)
-
-	out, e := ioutil.ReadAll(w.Result().Body)
-
-	t.Logf("Out %v, err %v", string(out), e)
-	t.Logf("Log output %v", buf.String())
-
-	var data map[string]interface{}
-	if err := json.Unmarshal(buf.Bytes(), &data); err != nil {
-		t.Error("unexpected error", err)
+	tests := []struct {
+		name               string
+		config             ConfigGin
+		route              func(server *gin.Engine)
+		requestUri         string
+		response           string
+		err                error
+		responseStatusCode int
+		logLevel           string
+	}{
+		{
+			name:   "Test nil config success",
+			config: ConfigGin{},
+			route: func(server *gin.Engine) {
+				server.GET("/hello/:name", func(ctx *gin.Context) {
+					logger := GetLogger(ctx)
+					name := ctx.Param("name")
+					logger.AddLog("request name %v", name)
+					ctx.String(200, "hello "+name)
+				})
+			},
+			requestUri:         "/hello/world",
+			response:           "hello world",
+			err:                nil,
+			responseStatusCode: http.StatusOK,
+			logLevel:           "info",
+		},
+		{
+			name:   "Test default config success",
+			config: DefaultConfigGin,
+			route: func(server *gin.Engine) {
+				server.GET("/hello/:name", func(ctx *gin.Context) {
+					logger := GetLogger(ctx)
+					name := ctx.Param("name")
+					logger.AddLog("request name %v", name)
+					ctx.String(200, "hello "+name)
+				})
+			},
+			requestUri:         "/hello/world",
+			response:           "hello world",
+			err:                nil,
+			responseStatusCode: http.StatusOK,
+			logLevel:           "info",
+		},
+		{
+			name: "Test skipp config success",
+			config: ConfigGin{
+				SkipperGin: func(context *gin.Context) bool {
+					if context.Request.RequestURI == "/metrics" {
+						return true
+					}
+					return false
+				},
+			},
+			route: func(server *gin.Engine) {
+				server.GET("/metrics", func(ctx *gin.Context) {
+					logger := GetLogger(ctx)
+					logger.AddLog("metrics")
+					ctx.String(200, "success")
+				})
+			},
+			requestUri:         "/metrics",
+			err:                nil,
+			responseStatusCode: http.StatusOK,
+			response:           "success",
+		},
+		{
+			name: "Test error",
+			config: ConfigGin{
+				BeforeFuncGin: func(context *gin.Context) {
+					context.Header("X-Metadata", "hello")
+				},
+			},
+			route: func(server *gin.Engine) {
+				server.GET("/hello/:name", func(ctx *gin.Context) {
+					logger := GetLogger(ctx)
+					name := ctx.Param("name")
+					logger.AddLog("request name %v", name)
+					ctx.Error(errors.New("test err"))
+					ctx.Status(500)
+				})
+			},
+			requestUri:         "/hello/world",
+			response:           "",
+			err:                nil,
+			responseStatusCode: http.StatusInternalServerError,
+			logLevel:           "error",
+		},
 	}
-	_, ok := data["STEP_1"]
-	uri, uriOk := data[URIField]
-	level, levelOk := data[FieldKeyLevel]
 
-	// TEST
-	assert.True(t, ok, `cannot found expected "STEP_1" field: %v`, data)
-	assert.True(t, uriOk, `cannot found expected "%v" field: %v`, URIField, data)
-	assert.Equal(t, requestUri, uri)
-	assert.True(t, levelOk, `cannot found expected "%v" field: %v`, FieldKeyLevel, data)
-	assert.Equal(t, level, "info")
-	assert.Equal(t, nil, e)
-	assert.Equal(t, "hello world", string(out))
-	assert.Equal(t, http.StatusOK, w.Code)
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buf := &bytes.Buffer{}
+			New(WithFormatter(&JSONFormatter{}), WithOutput(buf))
+			server := gin.New()
+			server.Use(GinMiddleware(tt.config))
+			tt.route(server)
 
-func TestGinMiddlewareError(t *testing.T) {
-	var (
-		buf     = &bytes.Buffer{}
-		testErr = errors.New("test err")
-	)
-	New(WithFormatter(&JSONFormatter{}),WithOutput(buf))
-	server := gin.New()
-	server.Use(GinMiddleware())
+			w := performRequest(server, "GET", tt.requestUri)
 
-	server.GET("/hello/:name", func(ctx *gin.Context)  {
-		logger := GetLogger(ctx)
-		name := ctx.Param("name")
-		logger.AddLog("request name %v", name)
-		ctx.Error(testErr)
-		ctx.Status(500)
-	})
+			out, e := ioutil.ReadAll(w.Result().Body)
 
-	// RUN
-	requestUri := "/hello/world"
-	w := performRequest(server, "GET", requestUri)
+			t.Logf("Out %v, err %v", string(out), e)
+			t.Logf("Log output %v", buf.String())
 
-	out, e := ioutil.ReadAll(w.Result().Body)
+			var data map[string]interface{}
+			if len(buf.String()) > 0 {
+				if err := json.Unmarshal(buf.Bytes(), &data); err != nil {
+					t.Error("unexpected error", err)
+				}
+				_, ok := data["STEP_1"]
+				uri, uriOk := data[URIField]
+				level, levelOk := data[FieldKeyLevel]
+				assert.True(t, ok, `cannot found expected "STEP_1" field: %v`, data)
+				assert.True(t, uriOk, `cannot found expected "%v" field: %v`, URIField, data)
+				assert.Equal(t, tt.requestUri, uri)
+				assert.True(t, levelOk, `cannot found expected "%v" field: %v`, FieldKeyLevel, data)
+				assert.Equal(t, tt.logLevel, level)
+			}
 
-	t.Logf("Out %v, err %v", string(out), e)
-	t.Logf("Log output %v", buf.String())
-
-	var data map[string]interface{}
-	if err := json.Unmarshal(buf.Bytes(), &data); err != nil {
-		t.Error("unexpected error", err)
+			// TEST
+			assert.Equal(t, tt.err, e)
+			assert.Equal(t, tt.response, string(out))
+			assert.Equal(t, tt.responseStatusCode, w.Code)
+		})
 	}
-	_, ok := data["STEP_1"]
-	uri, uriOk := data[URIField]
-	_, errOk := data[ErrorsField]
-	level, levelOk := data[FieldKeyLevel]
-
-	// TEST
-	assert.True(t, ok, `cannot found expected "STEP_1" field: %v`, data)
-	assert.True(t, uriOk, `cannot found expected "%v" field: %v`, URIField, data)
-	assert.True(t, errOk, `cannot found expected "%v" field: %v`, ErrorsField, data)
-	assert.True(t, levelOk, `cannot found expected "%v" field: %v`, FieldKeyLevel, data)
-	assert.Equal(t, level, "error")
-	assert.Equal(t, requestUri, uri)
-	assert.Equal(t, nil, e)
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
