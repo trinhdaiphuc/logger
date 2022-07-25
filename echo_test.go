@@ -13,91 +13,131 @@ import (
 )
 
 func TestEchoMiddleware(t *testing.T) {
-	var (
-		buf = &bytes.Buffer{}
-	)
-	New(WithFormatter(&JSONFormatter{}),WithOutput(buf))
-	server := echo.New()
-	server.Use(EchoMiddleware)
-	server.GET("/hello/:name", func(ctx echo.Context) error {
-		logger := GetLogger(ctx.Request().Context())
-		name := ctx.Param("name")
-		logger.AddLog("request name %v", name)
-		return ctx.String(200, "hello "+name)
-	})
+	testErr := errors.New("test err")
+	tests := []struct {
+		name               string
+		config             ConfigEcho
+		route              func(server *echo.Echo)
+		requestUri         string
+		response           string
+		err                error
+		responseStatusCode int
+		logLevel           string
+	}{
+		{
+			name:   "Test nil config success",
+			config: ConfigEcho{},
+			route: func(server *echo.Echo) {
+				server.GET("/hello/:name", func(ctx echo.Context) error {
+					logger := GetLogger(ctx.Request().Context())
+					name := ctx.Param("name")
+					logger.AddLog("request name %v", name)
+					return ctx.String(200, "hello "+name)
+				})
+			},
+			requestUri:         "/hello/world",
+			response:           "hello world",
+			err:                nil,
+			responseStatusCode: http.StatusOK,
+			logLevel:           "info",
+		},
+		{
+			name:   "Test default config success",
+			config: DefaultConfigEcho,
+			route: func(server *echo.Echo) {
+				server.GET("/hello/:name", func(ctx echo.Context) error {
+					logger := GetLogger(ctx.Request().Context())
+					name := ctx.Param("name")
+					logger.AddLog("request name %v", name)
+					return ctx.String(200, "hello "+name)
+				})
+			},
+			requestUri:         "/hello/world",
+			response:           "hello world",
+			err:                nil,
+			responseStatusCode: http.StatusOK,
+			logLevel:           "info",
+		},
+		{
+			name: "Test skipp config success",
+			config: ConfigEcho{
+				SkipperEcho: func(context echo.Context) bool {
+					if context.Request().RequestURI == "/metrics" {
+						return true
+					}
+					return false
+				},
+			},
+			route: func(server *echo.Echo) {
+				server.GET("/metrics", func(ctx echo.Context) error {
+					logger := GetLogger(ctx.Request().Context())
+					logger.AddLog("metrics")
+					return ctx.String(200, "success")
+				})
+			},
+			requestUri:         "/metrics",
+			err:                nil,
+			responseStatusCode: http.StatusOK,
+			logLevel:           "info",
+			response:           "success",
+		},
+		{
+			name: "Test error",
+			config: ConfigEcho{BeforeFuncEcho: func(ctx echo.Context) {
 
-	// RUN
-	requestUri := "/hello/world"
-	w := performRequest(server, "GET", requestUri)
-
-	out, e := ioutil.ReadAll(w.Result().Body)
-
-	t.Logf("Out %v, err %v", string(out), e)
-	t.Logf("Log output %v", buf.String())
-
-	var data map[string]interface{}
-	if err := json.Unmarshal(buf.Bytes(), &data); err != nil {
-		t.Error("unexpected error", err)
+			}},
+			route: func(server *echo.Echo) {
+				server.GET("/hello/:name", func(ctx echo.Context) error {
+					logger := GetLogger(ctx.Request().Context())
+					name := ctx.Param("name")
+					logger.AddLog("request name %v", name)
+					ctx.Error(testErr)
+					return testErr
+				})
+			},
+			requestUri:         "/hello/world",
+			response:           "{\"message\":\"Internal Server Error\"}\n",
+			err:                nil,
+			responseStatusCode: http.StatusInternalServerError,
+			logLevel:           "error",
+		},
 	}
-	_, ok := data["STEP_1"]
-	uri, uriOk := data[URIField]
-	level, levelOk := data[FieldKeyLevel]
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buf := &bytes.Buffer{}
+			New(WithFormatter(&JSONFormatter{}), WithOutput(buf))
+			server := echo.New()
+			server.Use(EchoMiddleware(tt.config))
+			tt.route(server)
 
-	// TEST
-	assert.True(t, ok, `cannot found expected "STEP_1" field: %v`, data)
-	assert.True(t, uriOk, `cannot found expected "%v" field: %v`, URIField, data)
-	assert.Equal(t, requestUri, uri)
-	assert.True(t, levelOk, `cannot found expected "%v" field: %v`, FieldKeyLevel, data)
-	assert.Equal(t, level, "info")
-	assert.Equal(t, nil, e)
-	assert.Equal(t, "hello world", string(out))
-	assert.Equal(t, http.StatusOK, w.Code)
-}
+			w := performRequest(server, "GET", tt.requestUri)
 
-func TestEchoMiddlewareError(t *testing.T) {
-	var (
-		buf     = &bytes.Buffer{}
-		testErr = errors.New("test err")
-	)
-	New(WithFormatter(&JSONFormatter{}),WithOutput(buf))
-	server := echo.New()
-	server.Use(EchoMiddleware)
+			out, e := ioutil.ReadAll(w.Result().Body)
 
-	server.GET("/hello/:name", func(ctx echo.Context) error {
-		logger := GetLogger(ctx.Request().Context())
-		name := ctx.Param("name")
-		logger.AddLog("request name %v", name)
-		ctx.Error(testErr)
-		return testErr
-	})
+			t.Logf("Out %v, err %v", string(out), e)
+			t.Logf("Log output %v", buf.String())
 
-	// RUN
-	requestUri := "/hello/world"
-	w := performRequest(server, "GET", requestUri)
+			var data map[string]interface{}
+			if len(buf.String()) > 0 {
+				if err := json.Unmarshal(buf.Bytes(), &data); err != nil {
+					t.Error("unexpected error", err)
+				}
+				_, ok := data["STEP_1"]
+				uri, uriOk := data[URIField]
+				level, levelOk := data[FieldKeyLevel]
 
-	out, e := ioutil.ReadAll(w.Result().Body)
-
-	t.Logf("Out %v, err %v", string(out), e)
-	t.Logf("Log output %v", buf.String())
-
-	var data map[string]interface{}
-	if err := json.Unmarshal(buf.Bytes(), &data); err != nil {
-		t.Error("unexpected error", err)
+				// TEST
+				assert.True(t, ok, `cannot found expected "STEP_1" field: %v`, data)
+				assert.True(t, uriOk, `cannot found expected "%v" field: %v`, URIField, data)
+				assert.Equal(t, tt.requestUri, uri)
+				assert.True(t, levelOk, `cannot found expected "%v" field: %v`, FieldKeyLevel, data)
+				assert.Equal(t, tt.logLevel, level)
+			}
+			assert.Equal(t, tt.err, e)
+			assert.Equal(t, tt.response, string(out))
+			assert.Equal(t, tt.responseStatusCode, w.Code)
+		})
 	}
-	_, ok := data["STEP_1"]
-	uri, uriOk := data[URIField]
-	_, errOk := data[ErrorsField]
-	level, levelOk := data[FieldKeyLevel]
-
-	// TEST
-	assert.True(t, ok, `cannot found expected "STEP_1" field: %v`, data)
-	assert.True(t, uriOk, `cannot found expected "%v" field: %v`, URIField, data)
-	assert.True(t, errOk, `cannot found expected "%v" field: %v`, ErrorsField, data)
-	assert.True(t, levelOk, `cannot found expected "%v" field: %v`, FieldKeyLevel, data)
-	assert.Equal(t, level, "error")
-	assert.Equal(t, requestUri, uri)
-	assert.Equal(t, nil, e)
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
 func performRequest(r http.Handler, method, path string) *httptest.ResponseRecorder {

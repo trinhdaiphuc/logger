@@ -10,43 +10,65 @@ import (
 	"time"
 )
 
-func GrpcInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
-	var (
-		log       = New(WithFormatter(&JSONFormatter{}))
-		start     = time.Now()
-		panicking = true
-	)
+var DefaultConfigGrpc = ConfigGrpc{
+	SkipperGrpc: DefaultSkipperGrpc,
+}
 
-	p, ok := peer.FromContext(ctx)
-	if ok {
-		log.WithField(ClientIPField, p.Addr.String())
+func GrpcInterceptor(config ConfigGrpc) grpc.UnaryServerInterceptor {
+	if config.SkipperGrpc == nil {
+		config.SkipperGrpc = DefaultSkipperGrpc
 	}
-	log.WithFields(map[string]interface{}{
-		StartField:   start,
-		URIField:     info.FullMethod,
-		RequestField: req,
-	})
+	log := New(WithFormatter(&JSONFormatter{}))
 
-	defer func() {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+		if config.SkipperGrpc(ctx, info) {
+			return handler(ctx, req)
+		}
+
+		if config.BeforeFuncGrpc != nil {
+			config.BeforeFuncGrpc(ctx, info)
+		}
 		var (
-			code = codes.OK
-			end  = time.Now()
+			start   = time.Now()
+			isError bool
 		)
 
-		switch {
-		case err != nil:
-			code = status.Code(err)
-		case panicking:
-			code = codes.Internal
+		p, ok := peer.FromContext(ctx)
+		if ok {
+			log.WithField(ClientIPField, p.Addr.String())
 		}
-		log.WithField(CodeField, code.String())
-		msg := fmt.Sprintf("latency: %v", end.Sub(start))
-		log.Info(msg)
-	}()
+		log.WithFields(map[string]interface{}{
+			StartField:   start,
+			URIField:     info.FullMethod,
+			RequestField: req,
+		})
 
-	ctx = context.WithValue(ctx, Key, log)
-	resp, err = handler(ctx, req)
-	panicking = false // normal exit, no panic happened, disarms defer
-	log.WithField(ResponseField, resp)
-	return
+		defer func() {
+			var (
+				code = codes.OK
+				end  = time.Now()
+			)
+
+			if err != nil {
+				code = status.Code(err)
+			}
+			log.WithField(CodeField, code.String())
+			msg := fmt.Sprintf("latency: %v", end.Sub(start))
+			if isError {
+				log.Error(msg)
+			} else {
+				log.Info(msg)
+			}
+		}()
+
+		ctx = context.WithValue(ctx, Key, log)
+		resp, err = handler(ctx, req)
+		if err != nil {
+			isError = true
+			log.WithField(ErrorsField, err)
+		} else {
+			log.WithField(ResponseField, resp)
+		}
+		return
+	}
 }

@@ -7,7 +7,14 @@ import (
 
 func main() {
 	server := echo.New()
-	server.Use(logger.EchoMiddleware)
+	server.Use(logger.EchoMiddleware(logger.ConfigEcho{
+		SkipperEcho: func(context echo.Context) bool {
+			if context.Request().RequestURI == "/metrics" {
+				return true
+			}
+			return false
+		},
+	}))
 
 	server.GET("/hello/:name", func(ctx echo.Context) error {
 		log := logger.GetLogger(ctx.Request().Context())
