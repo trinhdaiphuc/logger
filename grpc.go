@@ -18,9 +18,9 @@ func GrpcInterceptor(config ConfigGrpc) grpc.UnaryServerInterceptor {
 	if config.SkipperGrpc == nil {
 		config.SkipperGrpc = DefaultSkipperGrpc
 	}
-	log := New(WithFormatter(&JSONFormatter{}))
 
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+		log := New(WithFormatter(&JSONFormatter{}))
 		if config.SkipperGrpc(ctx, info) {
 			return handler(ctx, req)
 		}

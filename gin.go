@@ -15,9 +15,9 @@ func GinMiddleware(config ConfigGin) gin.HandlerFunc {
 	if config.SkipperGin == nil {
 		config.SkipperGin = DefaultSkipperGin
 	}
-	logger := New(WithFormatter(&JSONFormatter{}))
 
 	return func(ctx *gin.Context) {
+		logger := New(WithFormatter(&JSONFormatter{}))
 		if config.SkipperGin(ctx) {
 			ctx.Next()
 			return

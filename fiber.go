@@ -14,9 +14,9 @@ func FiberMiddleware(config ConfigFiber) fiber.Handler {
 	if config.SkipperFiber == nil {
 		config.SkipperFiber = DefaultSkipperFiber
 	}
-	logger := New(WithFormatter(&JSONFormatter{}))
 
 	return func(ctx *fiber.Ctx) error {
+		logger := New(WithFormatter(&JSONFormatter{}))
 		if config.SkipperFiber(ctx) {
 			return ctx.Next()
 		}

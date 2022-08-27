@@ -15,10 +15,10 @@ func EchoMiddleware(config ConfigEcho) echo.MiddlewareFunc {
 	if config.SkipperEcho == nil {
 		config.SkipperEcho = DefaultSkipperEcho
 	}
-	logger := New(WithFormatter(&JSONFormatter{}))
 
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(ctx echo.Context) error {
+			logger := New(WithFormatter(&JSONFormatter{}))
 			if config.SkipperEcho(ctx) {
 				return next(ctx)
 			}

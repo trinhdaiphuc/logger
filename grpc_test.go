@@ -32,7 +32,7 @@ func TestGrpcInterceptor(t *testing.T) {
 			reqName:    "",
 			res:        nil,
 			requestUri: "/hello.HelloService/Hello",
-			config:     ConfigGrpc{},
+			config:     DefaultConfigGrpc,
 			logLevel:   "error",
 			errCode:    codes.InvalidArgument,
 			errMsg:     fmt.Sprint("empty name"),
