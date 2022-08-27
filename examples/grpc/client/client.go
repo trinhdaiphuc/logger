@@ -25,6 +25,6 @@ func main() {
 		if err != nil {
 			log.Error(err)
 		}
-		log.Info("resp", log.ToJsonString(resp))
+		log.Info("resp", logger.ToJsonString(resp))
 	}
 }

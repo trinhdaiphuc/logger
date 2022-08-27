@@ -83,10 +83,9 @@ func TestLoggerJson(t *testing.T) {
 			Message: "OK",
 			Code:    200,
 		}
-		l       = New()
 		errData = func() {}
 	)
-	loggerStr := l.ToJsonString(data)
+	loggerStr := ToJsonString(data)
 	buf, err := json.Marshal(data)
 	expect := string(buf)
 	t.Logf("Logger json to string %v, data expect %v", loggerStr, expect)
@@ -95,7 +94,7 @@ func TestLoggerJson(t *testing.T) {
 	}
 
 	assert.Equalf(t, loggerStr, expect, "Expected string data %v, output logger %v", expect, loggerStr)
-	emptyStr := l.ToJsonString(errData)
+	emptyStr := ToJsonString(errData)
 	t.Logf("Logger empty to string %v", emptyStr)
 	assert.Equalf(t, emptyStr, "", "Expected empty string data, output logger %v", loggerStr)
 }

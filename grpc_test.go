@@ -132,7 +132,7 @@ var _ pb.HelloServiceServer = (*HelloService)(nil)
 
 func (h HelloService) Hello(ctx context.Context, request *pb.HelloRequest) (*pb.HelloResponse, error) {
 	logger := GetLogger(ctx)
-	logger.AddLog("request %v", logger.ToJsonString(request))
+	logger.AddLog("request %v", ToJsonString(request))
 	if len(request.Name) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "empty name")
 	}

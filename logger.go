@@ -81,7 +81,7 @@ NewLogger:
 
 // ToJsonString convert an object into json string to beautify log
 // return nil if marshalling error
-func (l *Log) ToJsonString(input interface{}) string {
+func ToJsonString(input interface{}) string {
 	if bytes, err := json.Marshal(input); err == nil {
 		return string(bytes)
 	}
